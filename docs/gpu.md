@@ -35,12 +35,12 @@ Shell (`web/shell.html`, compatible with the old wasm):
 - Settings › Graphics › "Video presentation": Automatic (WebGPU) / Safe mode (copy frames). Stored in `localStorage['reo-present']='copy'` (in `SETTING_KEYS`). In safe mode `chooseGpu()` sets `Module.presentCopy = true`. Texts in es/en/pt/fr/de/it.
 - Detector for old wasm builds: 3 `[gpu] …` lines matching `ImportMemory|invalid handle|Invalid Texture/TextureView/CommandBuffer|SharedImage` within 10 s while presenting via WebGPU → saves safe mode and, if `_ps2web_present_copy` exists, switches live; otherwise asks "Reload in safe mode" (if declined, it stays selected for next time).
 - `canPresent()` probes with the real canvas size (or 640x480) instead of 64x64.
-- Immediate user workaround, no deploy: open with `?copy` in the URL.
+- Immediate user workaround, no update: open with `?copy` in the URL.
 
 ### Verification
 - Done: `node --check` of the shell script OK; `-fsyntax-only` of `gpu.cpp`, `gs.cpp`, `system.cpp`, `host/web.cpp` with the web (emcc) build commands, and of `gpu.cpp`/`gs.cpp`/`system.cpp` with the native build, OK.
 - **Not verified at runtime**: the wasm was not rebuilt and the failure was not reproduced. Missing: a local build, trying `Module._ps2web_present_copy()` in the console (the overlaid canvas should appear and the game continue), toggling the Settings option both ways, and confirmation from a Linux user.
 
-### Deployment
-- `shell.html` only: **no restart needed**, works with the current wasm (with an old wasm the change requires a page reload; the dialog offers it).
-- `gpu.cpp`/`web.cpp`/`CMakeLists.txt`: require rebuilding and deploying the wasm (a "restart" category deploy).
+### Update
+- `shell.html` only: **no restart needed**. It works with the current wasm. With an old wasm, the change requires a page reload. The dialog offers it.
+- `gpu.cpp`/`web.cpp`/`CMakeLists.txt`: require a wasm rebuild and an update of the served files.

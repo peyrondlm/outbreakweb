@@ -17,7 +17,7 @@ import java.util.Map;
 
 /**
  * Moderation for the owner's panel (/admin, "Moderacion" tab). Same admin token as the metrics panel
- * (X-Admin-Token, or Authorization: Bearer); behind Caddy the panel also has basic auth, whose user name is
+ * (X-Admin-Token, or Authorization: Bearer). A reverse proxy can add basic auth; its user name is
  * recorded as "by" in the log. The panel never gets an address: messages, players and address sanctions carry
  * an opaque reference (ApiGuard.ipRef, HMAC of the address keyed with the admin token) resolved back here.
  *
@@ -86,7 +86,7 @@ final class Moderation {
         ApiGuard.reply(ex, 200, m);
     }
 
-    /** Basic-auth user name (checked by Caddy in production), else "token". */
+    /** Basic-auth user name from a reverse proxy, else "token". */
     private static String who(String auth) {
         if (auth != null && auth.startsWith("Basic ")) {
             try {

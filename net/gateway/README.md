@@ -7,4 +7,4 @@ go build ./cmd/reo-gateway
 go test ./...
 ```
 
-`config.example.json` is for local use (`run-local.sh` starts it); `config.production.example.json` shows the hardened settings (origin check, trusted proxies, per-IP limits). See [../../docs/network.md](../../docs/network.md).
+`config.example.json` is for local use. `run-local.sh` writes its own config. With `--all` or `--address`, the gateway stays on `127.0.0.1`, and `serve.py` proxies `/eth` to it. See [../../docs/network.md](../../docs/network.md).

@@ -37,7 +37,7 @@ import java.util.regex.Pattern;
  *                              "mob":false, "gpu":true, "ev":[{"t":"page_view"}, {"t":"start_online","game":"file1","scale":"2"},
  *                              {"t":"session_end","game":"file1","dur":600,"online":true}, {"t":"net_error","kind":"busy"}]}
  *                             whitelisted types and values, at most 20 events, ApiGuard body limit, per-address rate limit
- *                             (the address is only used in memory for that). Country: CF-IPCountry header (Cloudflare), else XX.
+ *                             (the address is only used in memory for that). Country: CF-IPCountry header if a proxy sends it, else XX.
  *   GET  /api/admin/metrics?range=today|7d|30d|90d   Authorization: Bearer <REO_ADMIN_TOKEN>, or X-Admin-Token: <token>
  *
  * Server side: the US lobby snapshots (the same data as /api/rooms) are sampled every 2 s: logins, players, rooms

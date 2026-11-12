@@ -33,4 +33,4 @@ Computed with local scripts over the gateway/server logs and the metrics event f
 - Pace ratio min/max between members: p10 0.25, p50 0.79; 1 256 games with a member < 40% of the fastest (may be host/guest role, not necessarily lag).
 
 ### New lag metric (Oct 24, pending deploy)
-- `game X stats` now carries each member's RTT to the gateway and the **estimated one-way delay of the worst pair**; `lag_*` metrics and a `game_lag` event (network.md §14). It replaces the gaps for measuring lag. Region plan: [region-na.md](region-na.md).
+- `game X stats` now carries each member's RTT to the gateway and the **estimated one-way delay of the worst pair**; `lag_*` metrics and a `game_lag` event (network.md §14). It replaces the gaps for measuring lag.

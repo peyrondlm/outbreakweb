@@ -1966,7 +1966,7 @@ document.getElementById('card-delete').addEventListener('click', () => {
 });
 
 // ---- network: the gateway URL (?gateway=URL, ?nonet to unplug the adapter) ----
-// Over https (production, behind Caddy/Cloudflare) the gateway is on the same origin at /eth; locally, ws://host:8765/eth.
+// Over https the gateway is on the same origin at /eth. Over http it is ws://host:8765/eth.
 const NET_URL = params.has('nonet') ? '' : params.get('gateway') || (location.protocol === 'https:' ? 'wss://' + location.host + '/eth' : 'ws://' + (location.hostname || 'localhost') + ':8765/eth');
 // The status tracker shares with the teammates what the game does not send them (virus, timers: trkNetTick) over the
 // runtime's own WebSocket to the gateway: the page keeps a handle on it (no engine change; protocol.md 6.18).
@@ -2767,7 +2767,7 @@ const applyStats = () => { document.getElementById('stats').hidden = !statsInput
 statsInput.addEventListener('change', () => { store('reo-stats', statsInput.checked ? '1' : null); applyStats(); });
 // Anonymous statistics for the owner's panel (server Metrics.java, /admin): small batched events sent with
 // sendBeacon, a random id that changes every day (localStorage reo-mvid), no cookies; the server never stores
-// the address (country from Cloudflare's CF-IPCountry). Opt-out: Settings -> General (reo-metrics-off).
+// the address (country from the CF-IPCountry header, if a proxy sends it). Opt-out: Settings -> General (reo-metrics-off).
 const metrics = (() => {
   let off = false;
   try { off = localStorage.getItem('reo-metrics-off') === '1'; } catch (e) {}

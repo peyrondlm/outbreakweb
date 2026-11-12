@@ -1,18 +1,23 @@
 #!/usr/bin/env python3
 """Serves web builds and disc images with HTTP range requests and the COOP/COEP headers.
 
-usage: serve.py <build dir> <disc image> [port] [--record <dir for unrecorded VU1 programs>] [--api <url>]
-       serve.py <name>=<build dir>,<disc image> [<name>=<build dir>,<disc image> ...] [port]
+usage: serve.py <build dir> <disc image> [port] [options]
+       serve.py <name>=<build dir>,<disc image> [<name>=<build dir>,<disc image> ...] [port] [options]
 
 The second form serves several games from one server: each one under /<name>/
 (for example /file1/ and /file2/), /games.json lists them and / is the game
 picker page (web/index.html).
 
-Each disc image is also served as production serves it: 64 MiB pieces disc/000.bin, disc/001.bin ...
-(immutable, like the Caddy route), so the page reads by pieces; ?disc=disc.iso still reads the whole image.
+Each disc image is also served by 64 MiB pieces disc/000.bin, disc/001.bin ...
+The page reads by pieces. ?disc=disc.iso still reads the whole image.
 
---api http://127.0.0.1:8088 forwards /api/* (GET and POST) to the lobby server's HTTP API,
-so the page can register its player name on its own origin (no CORS under COEP).
+Options:
+  --record <dir>       Write unrecorded VU1 programs to <dir>.
+  --api <url>          Forward /api/* (GET and POST) to the lobby server's HTTP API.
+  --host <address>     Bind the HTTP server to <address> (default 127.0.0.1).
+  --tls-cert <file>    Serve HTTPS with this certificate. Use it with --tls-key.
+  --tls-key <file>     Private key for --tls-cert.
+  --gateway <host:port> Forward /eth WebSocket handshakes to the gateway.
 """
 
 import http.server
@@ -20,20 +25,44 @@ import json
 import os
 import re
 import shutil
+import socket
+import ssl
 import sys
+import threading
 import urllib.error
 import urllib.request
 
-RECORD = None
-if '--record' in sys.argv:
-    at = sys.argv.index('--record')
-    RECORD = os.path.abspath(sys.argv[at + 1])
+
+def take_option(name):
+    """Remove NAME VALUE from the arguments and return VALUE."""
+    if name not in sys.argv:
+        return None
+    at = sys.argv.index(name)
+    if at + 1 >= len(sys.argv):
+        sys.exit('%s needs a value' % name)
+    value = sys.argv[at + 1]
     del sys.argv[at:at + 2]
-API = None
-if '--api' in sys.argv:
-    at = sys.argv.index('--api')
-    API = sys.argv[at + 1].rstrip('/')
-    del sys.argv[at:at + 2]
+    return value
+
+
+RECORD = take_option('--record')
+if RECORD:
+    RECORD = os.path.abspath(RECORD)
+API = take_option('--api')
+if API:
+    API = API.rstrip('/')
+HOST = take_option('--host') or '127.0.0.1'
+TLS_CERT = take_option('--tls-cert')
+TLS_KEY = take_option('--tls-key')
+GATEWAY = take_option('--gateway')
+if bool(TLS_CERT) != bool(TLS_KEY):
+    sys.exit('--tls-cert and --tls-key must be used together')
+if GATEWAY:
+    try:
+        gw_host, gw_port = GATEWAY.rsplit(':', 1)
+        GATEWAY = (gw_host, int(gw_port))
+    except ValueError:
+        sys.exit('--gateway must be HOST:PORT')
 TITLES = {'SLUS-20765': 'File #1', 'SLUS-20984': 'File #2'}
 INDEX = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'web', 'index.html')
 ADMIN = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'web', 'admin.html')   # owner's metrics panel
@@ -182,7 +211,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         data = self.rfile.read(length) if self.command == 'POST' else None
         headers = {'Content-Type': self.headers.get('Content-Type', 'application/json'),
                    'X-Forwarded-For': self.client_address[0]}
-        for h in ('Authorization', 'X-Admin-Token', 'CF-IPCountry'):   # admin token (/api/admin/*) and Cloudflare's country for metrics
+        for h in ('Authorization', 'X-Admin-Token', 'CF-IPCountry'):   # admin token (/api/admin/*) and optional country header for metrics
             if self.headers.get(h):
                 headers[h] = self.headers.get(h)
         req = urllib.request.Request(API + self.path, data=data, method=self.command, headers=headers)
@@ -202,12 +231,108 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
         return True
 
+    def proxy_ws(self):
+        """Forward /eth WebSocket handshakes to the gateway (--gateway). Returns False for other paths."""
+        if not GATEWAY or self.path.split('?', 1)[0] != '/eth':
+            return False
+        if self.headers.get('Upgrade', '').lower() != 'websocket':
+            return False
+        try:
+            upstream = socket.create_connection(GATEWAY, timeout=10)
+        except OSError:
+            self.send_error(502)
+            return True
+        try:
+            lines = ['GET %s HTTP/1.1' % self.path]
+            for key, value in self.headers.items():
+                if key.lower() in ('x-forwarded-for', 'x-real-ip'):
+                    continue
+                lines.append('%s: %s' % (key, value))
+            lines.append('X-Forwarded-For: %s' % (self.client_address[0],))
+            upstream.sendall(('\r\n'.join(lines) + '\r\n\r\n').encode('latin-1'))
+
+            head = b''
+            while b'\r\n\r\n' not in head:
+                data = upstream.recv(4096)
+                if not data:
+                    break
+                head += data
+                if len(head) > 65536:
+                    break
+            if b'\r\n\r\n' not in head:
+                self.send_error(502)
+                return True
+            header, _, rest = head.partition(b'\r\n\r\n')
+            status_line = header.split(b'\r\n', 1)[0]
+            parts = status_line.split()
+            status = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 502
+            self.wfile.write(header + b'\r\n\r\n' + rest)
+            self.wfile.flush()
+            if status != 101:
+                upstream.settimeout(2)
+                try:
+                    while True:
+                        data = upstream.recv(65536)
+                        if not data:
+                            break
+                        self.wfile.write(data)
+                        self.wfile.flush()
+                except OSError:
+                    pass
+                self.close_connection = True
+                return True
+
+            upstream.settimeout(None)
+            self.connection.settimeout(None)
+
+            def upstream_to_client():
+                try:
+                    while True:
+                        data = upstream.recv(65536)
+                        if not data:
+                            break
+                        self.wfile.write(data)
+                        self.wfile.flush()
+                except OSError:
+                    pass
+                finally:
+                    try:
+                        self.connection.shutdown(socket.SHUT_WR)
+                    except OSError:
+                        pass
+
+            thread = threading.Thread(target=upstream_to_client, daemon=True)
+            thread.start()
+            try:
+                while True:
+                    data = self.rfile.read1(65536)
+                    if not data:
+                        break
+                    upstream.sendall(data)
+            except OSError:
+                pass
+            finally:
+                try:
+                    upstream.shutdown(socket.SHUT_WR)
+                except OSError:
+                    pass
+            thread.join()
+            self.close_connection = True
+            return True
+        finally:
+            try:
+                upstream.close()
+            except OSError:
+                pass
+
     def do_POST(self):
         if not self.proxy_api():
             self.send_error(405)
 
     def do_GET(self):
         if self.proxy_api():
+            return
+        if self.proxy_ws():
             return
         if self.redirect_dir():
             return
@@ -273,6 +398,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         pass
 
 
+scheme = 'https' if TLS_CERT else 'http'
 for name, (build, disc) in SITES.items():
-    print('serving %s and %s on http://127.0.0.1:%d/%s' % (build, disc, PORT, name + '/' if name else ''))
-http.server.ThreadingHTTPServer(('127.0.0.1', PORT), Handler).serve_forever()
+    print('serving %s and %s on %s://%s:%d/%s' % (build, disc, scheme, HOST, PORT, name + '/' if name else ''))
+server = http.server.ThreadingHTTPServer((HOST, PORT), Handler)
+if TLS_CERT:
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(TLS_CERT, TLS_KEY)
+    server.socket = context.wrap_socket(server.socket, server_side=True)
+server.serve_forever()

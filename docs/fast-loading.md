@@ -74,6 +74,6 @@ Headless Chrome 156, network throttled to 25 Mbit/s + 80 ms, fresh profile per r
 - Local tests: `serve.py` without `--api` returns 404 on `/api/kk/register` and the name is rejected; the harness simulates registration.
 - Tools: a local web-load harness (`webload.mjs` with `SAMPLE=1` and `PRE_JS`, brightness/darkness scripts, a route file). Use short profile folder names.
 
-## What deploy requires
-- New wasm for both games (`kernel.cpp`, `cdvd*.cpp`, `disc.cpp`, `system.cpp`, `host/web.cpp`) and the pages (`shell.html`). No server restart or Caddy/gateway changes.
-- Rolling back without a deploy: `?PS2_DISC_SPEED=orig&nowarm` in the URL.
+## What an update requires
+- New wasm for both games (`kernel.cpp`, `cdvd*.cpp`, `disc.cpp`, `system.cpp`, `host/web.cpp`) and the pages (`shell.html`). No server restart and no gateway changes.
+- Rolling back without an update: `?PS2_DISC_SPEED=orig&nowarm` in the URL.

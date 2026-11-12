@@ -5,7 +5,7 @@ usage: scripts/version_web.py build/web-<game>
 
 Copies ps2web.js, ps2web.wasm (build) and loader.js, loader.css (web/) to <name>.<hash12>.<ext> (+ .gz), rewrites
 the references in ps2web.html (the script and stylesheet tags and <meta name=reo-engine content="<wasm> <bytes>">)
-and writes engine.json ({"js", "wasm", "bytes", "loader_js", "loader_css"}: deploy.sh and the prefetch read it).
+and writes engine.json ({"js", "wasm", "bytes", "loader_js", "loader_css"}: the prefetch reads it).
 Old hashed copies are removed. Idempotent: running it again on an already rewritten page works.
 ps2web.data and the disc image are not touched (they keep their names and their revalidated caching).
 """

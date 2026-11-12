@@ -214,12 +214,12 @@ type session struct {
 
 	stats struct {
 		in, out, dropped, denied atomic.Uint64
-		// round trip of the liveness pings (browser -> Cloudflare -> here and back), ms: for the network
+		// round trip of the liveness pings (browser -> proxy -> here and back), ms: for the network
 		// measurements of the desync work (reoutbreak docs/notes/backlog.md, 23/10)
 		rttN, rttSum, rttMax atomic.Int64
 		rttMin               atomic.Int64
 	}
-	country string // CF-IPCountry of the WebSocket request ("" without Cloudflare)
+	country string // CF-IPCountry of the WebSocket request ("" when no proxy sends it)
 }
 
 func newSession(cfg *Config, id uint64, peer string, logger *log.Logger) (*session, error) {

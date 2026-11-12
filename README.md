@@ -1,7 +1,7 @@
 # Outbreak Web
 
 **Resident Evil Outbreak File #1 and File #2 (US, PS2) playable in the browser, online included.**
-This is the code behind [outbreakweb.com](https://outbreakweb.com): a static recompiler that turns the PS2 game into WebAssembly, the web page around it, a fan lobby server, and a WebSocket-to-Ethernet gateway that lets the browser game reach that server.
+This repository contains a static recompiler that turns the PS2 game into WebAssembly. It also contains the web page, a fan lobby server, and a WebSocket-to-Ethernet gateway. The gateway lets the browser game reach the server.
 
 This is an unofficial fan project. It is not affiliated with or endorsed by Capcom or Sony. Resident Evil and Outbreak are trademarks of Capcom; PlayStation is a trademark of Sony Interactive Entertainment.
 
@@ -14,7 +14,7 @@ This repository contains **only original code and third-party code under its own
 | Disc images (ISO), the game's executable (ELF), overlays and any file from the disc | Capcom's copyrighted game. Use a disc image of a game you own. |
 | Generated C++ (`generated/`) and the built `.wasm` / `.data` | They are a translation of the game's executable, so they belong to the game's owners. Build them on your own machine and do not publish them. |
 | Game art: screenshots, videos, item icons, portraits, map names | The page's status tracker decodes icons and names from **your own disc** in your browser at run time. |
-| Production secrets and private config | Admin tokens, database passwords, TLS keys, webhook URLs, the server address. They live only on the server and the operator's PC. Templates (`*.example`) show the format. |
+| Private config and secrets | Admin tokens, database passwords, TLS keys, webhook URLs, server addresses. Keep them outside the repository. Templates (`*.example`) show the format. |
 | Internal notes, logs and packet captures | Operational history and data from real players. The technical findings are in `docs/` instead. |
 
 Our own code patches (`ps2-web-recomp/scripts/patches/`) contain only addresses and instructions we wrote, never bytes copied from the game.
@@ -24,10 +24,9 @@ Our own code patches (`ps2-web-recomp/scripts/patches/`) contain only addresses 
 | Path | What | License |
 |---|---|---|
 | `ps2-web-recomp/` | PS2 static recompiler (EE → C++ → WebAssembly), runtime (IOP, GS on WebGPU, SPU2, CDVD, DEV9/network), the web page (`web/shell.html`), port and build scripts | MIT (fork of [snuri00/ps2-web-recomp](https://github.com/snuri00/ps2-web-recomp)) |
-| `server/` | Java lobby server for both games: the original JP lobby protocol (from Bioserver), the US `app01` / `kkClient` lobby (UDP 9090), and an HTTP API for the site (rooms, chat, moderation, metrics, friends, reports) | **AGPL-3.0** (derived from BioServer 1/2 by obsrv.org) |
+| `server/` | Java lobby server for both games: the original JP lobby protocol (from Bioserver), the US `app01` / `kkClient` lobby (UDP 9090), and an HTTP API for the web page (rooms, chat, moderation, metrics, friends, reports) | **AGPL-3.0** (derived from BioServer 1/2 by obsrv.org) |
 | `net/gateway/` | Go gateway: Ethernet frames over WebSocket from the emulated network adapter, DHCP/DNS, and a strict allow list of upstream services | MIT |
-| `deploy/` | Scripts to install and update a production server (Ubuntu VPS behind Cloudflare, Caddy, systemd), backups and alerts | MIT |
-| `run-local.sh` | Runs server + gateway + web page on one machine | MIT |
+| `run-local.sh` | Runs server + gateway + web page on one machine. Modes: local, LAN and VPN | MIT |
 | `docs/` | Technical notes: protocol, network, runtime, web, tracker, performance | CC BY 4.0 |
 
 ## Build and play locally
@@ -55,11 +54,21 @@ cd ~/reo-web && ./run-local.sh
 
 Then open `http://localhost:8620/` in Chrome or Edge (WebGPU is required). Two players on one PC: a normal window and an incognito window, each with a different player name. See [docs/playing-online.md](docs/playing-online.md) and [ps2-web-recomp/README.md](ps2-web-recomp/README.md) for the recompiler itself.
 
-Tests: `server/tests/run-tests.sh`, `cd net/gateway && go test ./...`, `deploy/tests/run-tests.sh`.
+Tests: `server/tests/run-tests.sh` and `cd net/gateway && go test ./...`.
 
-## Running your own public server
+## Play on a LAN or VPN
 
-`deploy/` holds the scripts used for outbreakweb.com; see [deploy/README.md](deploy/README.md). Put your server's address in `~/.config/reo/deploy.env` (`REO_HOST=...`), never in the repository. If you run a modified server for others, the AGPL requires you to offer them its source.
+`run-local.sh` has three modes:
+
+```bash
+./run-local.sh                      # this machine only (127.0.0.1)
+./run-local.sh --all                # all IPv4 interfaces, HTTPS
+./run-local.sh --address 100.x.y.z  # one IPv4 address, for example Tailscale or WireGuard
+```
+
+`--all` and `--address` serve port 8620 with HTTPS and a self-signed certificate. The gateway stays on 127.0.0.1, and `serve.py` proxies the game WebSocket to it. Accept the certificate warning once on each device. Open TCP 8620 in the firewall. See [docs/playing-online.md](docs/playing-online.md) for WSL2 and certificate options.
+
+If you run a modified server for other people, the AGPL requires you to offer them its source.
 
 ## Documentation
 

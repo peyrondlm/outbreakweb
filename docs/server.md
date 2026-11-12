@@ -103,4 +103,4 @@ Note: all this validates that **we understood the JP protocol as Bioserver imple
 2. Serve the US web login (`http://regweb.reo.capcom.sf.yav4.com/reweb/index.jsp`): see what the game's browser expects. On JP it was a CSV embedded in an HTML comment (`startsession.php`: `<!--<CSV>"OK","<sessid>","<url start>","<url exit>",</CSV>-->`).
 3. If the US protocol differs, implement the `protocol=us` profile (another handler or a framing adapter) without touching `jp`.
 4. Extend the test client to slot→game (0x6407…0x6916) with 2 players, and to GSINFO pointing at `public_ip`.
-5. Before any public deploy: hash the passwords, turn off `api.dev_login`, decide on hosting, and publish the code (AGPL).
+5. Before public use: hash the passwords, turn off `api.dev_login`, and publish the code (AGPL).

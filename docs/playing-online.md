@@ -1,6 +1,6 @@
-# How to play online (File #1 and File #2, on one PC)
+# How to play online (File #1 and File #2, on one PC, a LAN or a VPN)
 
-2 to 4 players on the same computer, each in their own Chrome window, against a local server. No account or password needed.
+2 to 4 players on the same computer or on other devices. Each player uses a Chrome window and connects to a local server. No account or password is necessary.
 
 ## 1. Start everything (one command)
 
@@ -8,7 +8,48 @@
 ./run-local.sh
 ```
 
-(From Windows with the code in WSL: `wsl -e bash -lc ~/reo-web/run-local.sh`.) Wait for `Ready. Open http://localhost:8620/`. It starts the lobby server, the network gateway and the web page. **Ctrl+C** stops everything. (If MariaDB does not start by itself, start the service and repeat.) It also prints the token for the owner's metrics panel at http://localhost:8620/admin.
+(From Windows with the code in WSL: `wsl -e bash -lc ~/reo-web/run-local.sh`.) Wait for `Ready. Open http://localhost:8620/`. It starts the lobby server, the network gateway and the web page. **Ctrl+C** stops everything. (If MariaDB does not start by itself, start the service and repeat.) It also prints the token for the owner's metrics panel at http://localhost:8620/admin. Network mode prints HTTPS URLs instead.
+
+## 1b. Play on a LAN or VPN
+
+`run-local.sh` starts in local mode. Use `--all` or `--address` when other devices must reach this machine.
+
+```bash
+./run-local.sh --all                # all IPv4 interfaces
+./run-local.sh --address 100.x.y.z  # one IPv4 address, for example Tailscale or WireGuard
+```
+
+They do these steps:
+
+1. `serve.py` serves `https://<address>:8620/` with a self-signed certificate.
+2. `serve.py` proxies `/eth` to the gateway on `127.0.0.1:8765`.
+3. The Java server and the gateway stay on loopback.
+
+On each device:
+
+1. Open the URL that `run-local.sh` prints.
+2. Accept the certificate warning.
+3. Use the player-name steps below.
+
+Open TCP 8620 in the firewall. No other port is necessary.
+
+The script makes the certificate in `net/runs/local/tls/`. The certificate contains `localhost`, the hostname and the detected IPv4 addresses. Use `LAN_ADDRS="IP [IP ...]"` to add an address. Use `LAN_TLS_CERT` and `LAN_TLS_KEY` to use your own certificate.
+
+WSL2: if Windows uses NAT mode, forward TCP 8620 from Windows to the distribution. Run these commands in PowerShell:
+
+```powershell
+$wsl = (wsl hostname -I).Trim().Split()[0]
+netsh interface portproxy add v4tov4 listenaddress=0.0.0.0 listenport=8620 connectaddress=$wsl connectport=8620
+New-NetFirewallRule -DisplayName "reo-web 8620" -Direction Inbound -Protocol TCP -LocalPort 8620 -Action Allow
+```
+
+Use the Windows LAN address in `LAN_ADDRS` so the certificate contains that address. For example:
+
+```bash
+LAN_ADDRS=192.168.1.10 ./run-local.sh --all
+```
+
+Windows 11 can use mirrored networking instead. Add `networkingMode=mirrored` to the `[wsl2]` section of `.wslconfig`.
 
 ## 2. The two windows
 
@@ -64,7 +105,7 @@ Open rooms: http://localhost:8620/api/rooms (title, players, maximum, whether pr
 - **4 players:** tested natively with 4 instances in File #1 (J's Bar) and File #2 (wild things): all four in the room, START, and all four in game seeing each other move. Until 2026-10-20 with 4 players the 4th player's entry (black screen) and START (someone stuck in the waiting room) failed: these were server bugs, so rebuild (`scripts/setup.sh build`) and restart `run-local.sh`.
 - **Returning to the room after a game:** if after finishing the scenario everyone returns to the waiting room and someone leaves, the room reappears in the list with a free slot and another player can join (fixed in the server on 2026-10-20; tested with simulated clients, not yet with a really finished game).
 - **Lag:** the server relays each message in under 1 ms; the game sends positions a few times per second and each console interpolates them (as the original did). To make it less noticeable: keep the windows visible and at 60 fps.
-- Not tested over the internet.
+- LAN and VPN play use HTTPS. Public internet play is not a target.
 - Black screen or "Gateway disconnected" in the pre-menu: `run-local.sh` is not running.
 
 ## File #2

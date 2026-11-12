@@ -20,6 +20,6 @@ tools/emsdk/
 *.env
 !*.env.example
 local.properties
-deploy-out/
+net/runs/
 __pycache__/
 *.pyc
